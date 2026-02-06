@@ -9,7 +9,7 @@ try {
   const serviceAccount = JSON.parse(secretData);
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    databaseURL: "https://unity-box-267cc-default-rtdb.europe-west1.firebasedatabase.app"
+        databaseURL: "https://unitv-box-367cc-default-rtdb.firebaseio.com"
   });
 } catch (e) {
   console.error("Erro ao ler o Segredo JSON. Verifique se colou o texto completo.");
