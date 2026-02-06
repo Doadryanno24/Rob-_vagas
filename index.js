@@ -2,17 +2,22 @@ const admin = require('firebase-admin');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-// Pega o segredo e limpa qualquer espaço extra que possa ter vindo do celular
-const secretData = process.env.FIREBASE_SERVICE_ACCOUNT.trim();
+// Pega a chave dos Segredos do GitHub
+const secretData = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+if (!secretData) {
+  console.error("ERRO: O segredo FIREBASE_SERVICE_ACCOUNT não foi encontrado.");
+  process.exit(1);
+}
 
 try {
   const serviceAccount = JSON.parse(secretData);
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-        databaseURL: "https://unitv-box-367cc-default-rtdb.firebaseio.com"
+    databaseURL: "https://unitv-box-367cc-default-rtdb.firebaseio.com"
   });
 } catch (e) {
-  console.error("Erro ao ler o Segredo JSON. Verifique se colou o texto completo.");
+  console.error("ERRO ao processar o JSON:", e.message);
   process.exit(1);
 }
 
@@ -20,16 +25,22 @@ const db = admin.database();
 
 async function capturarVagas() {
   try {
-    const { data } = await axios.get('https://vagas.empregoslocais.com.br/');
+    console.log("Iniciando captura de vagas...");
+    const { data } = await axios.get('https://vagas.empregoslocais.com.br/', {
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
     const $ = cheerio.load(data);
     const ref = db.ref('empregos');
+    let contador = 0;
 
     const promessas = [];
     $('.elementor-post').each((i, el) => {
       const titulo = $(el).find('.elementor-post__title').text().trim();
       const resumo = $(el).find('.elementor-post__excerpt').text().trim();
 
+      // Filtra apenas vagas de São Luís
       if (resumo.toLowerCase().includes('são luís') || resumo.toLowerCase().includes('slz')) {
+        contador++;
         promessas.push(ref.push({
           title: titulo,
           localizacao: "São Luís, MA",
@@ -40,17 +51,20 @@ async function capturarVagas() {
           empresa: "Confidencial",
           empresaKey: "robot_slz",
           favorito: false,
-          logoUrl: "https://via.placeholder.com/150"
+          logoUrl: "https://via.placeholder.com/150",
+          whatsapp: "n/a",
+          email: "n/a"
         }));
       }
     });
     
     await Promise.all(promessas);
-    console.log("✅ Vagas enviadas com sucesso!");
+    console.log(`✅ Sucesso! ${contador} vagas de São Luís enviadas para o Firebase.`);
+    process.exit(0);
   } catch (e) { 
-    console.error("Erro na captura:", e); 
+    console.error("Erro na captura:", e.message);
+    process.exit(1);
   }
 }
+
 capturarVagas();
-
-
